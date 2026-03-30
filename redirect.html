@@ -248,7 +248,7 @@
                         timestamp: new Date().toISOString()
                     };
 
-                    const visitsRef = ref(db, `users/${uid}/links/${linkId}/visits`);
+                    const visitsRef = ref(db, `publicLinks/${linkId}`);
                     const newVisitRef = push(visitsRef);
                     update(newVisitRef, visitData)
                         .then(() => console.log("✅ Visit saved"))
@@ -265,7 +265,7 @@
                 // Automatic redirect after a short delay (ensures message is seen)
                 setTimeout(() => {
                     window.location.replace(destination);
-                }, 200);
+                }, 300);
                 
                 // Provide manual fallback
                 manualLinkSpan.textContent = destination;
