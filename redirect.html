@@ -248,7 +248,7 @@
                         timestamp: new Date().toISOString()
                     };
 
-                    const visitsRef = ref(db, `publicLinks/${linkId}`);
+                    const visitsRef = ref(db, `users/${uid}/links/${linkId}/visits`);
                     const newVisitRef = push(visitsRef);
                     update(newVisitRef, visitData)
                         .then(() => console.log("✅ Visit saved"))
