@@ -104,7 +104,6 @@
         import { initializeApp } from "firebase/app";
         import { getDatabase, ref, get, update, push } from "firebase/database";
 
-        // Wait for DOM to be fully loaded
         document.addEventListener("DOMContentLoaded", () => {
             // 🔁 YOUR FIREBASE CONFIGURATION
             const firebaseConfig = {
@@ -118,11 +117,9 @@
                 measurementId: "G-FHJSFVG3RE"
             };
 
-            // Initialize Firebase
             const app = initializeApp(firebaseConfig);
             const db = getDatabase(app);
 
-            // DOM elements
             const messageDiv = document.getElementById('message');
             const manualRedirectBtn = document.getElementById('manualRedirectBtn');
             const manualLinkSpan = document.getElementById('manualLink');
@@ -139,7 +136,7 @@
                 return;
             }
 
-            // Step 1: Look up the link in global index to find the owner UID
+            // 1️⃣ Look up owner via global link index
             messageDiv.innerHTML = '<div>🔍 Locating link...</div>';
             const indexRef = ref(db, `linkIndex/${linkId}`);
             
@@ -159,7 +156,7 @@
                     return;
                 }
 
-                // Step 2: Fetch the full link data from the user's subpath
+                // 2️⃣ Fetch the full link data from the user's subpath
                 messageDiv.innerHTML = '<div>📡 Fetching destination...</div>';
                 const linkRef = ref(db, `users/${uid}/links/${linkId}`);
                 const linkSnapshot = await get(linkRef);
@@ -199,7 +196,6 @@
                 }
 
                 // ========== ANALYTICS (non-blocking) ==========
-                // Collect device info
                 const userAgent = navigator.userAgent;
                 const platform = navigator.platform;
                 const referrer = document.referrer || "Direct";
@@ -222,12 +218,12 @@
 
                 const screenSize = { width: screen.width, height: screen.height };
 
-                // Fetch geo data in background
+                // Geo data (non‑blocking)
                 const geoPromise = fetch("https://ipapi.co/json/")
                     .then(res => res.ok ? res.json() : {})
                     .catch(err => { console.warn("GeoIP fetch failed:", err); return {}; });
 
-                // Prepare visit data and save after geo resolves
+                // Save visit and increment click count in background
                 geoPromise.then(loc => {
                     const visitData = {
                         ip: loc.ip || "hidden",
@@ -248,6 +244,7 @@
                         timestamp: new Date().toISOString()
                     };
 
+                    // ✅ Path: users/{uid}/links/{linkId}/visits/{visitId}
                     const visitsRef = ref(db, `users/${uid}/links/${linkId}/visits`);
                     const newVisitRef = push(visitsRef);
                     update(newVisitRef, visitData)
@@ -255,24 +252,23 @@
                         .catch(err => console.warn("Visit save failed:", err));
                 });
 
-                // Increment click count
+                // ✅ Increment click count (path: users/{uid}/links/{linkId})
                 update(linkRef, { clickCount: (linkData.clickCount || 0) + 1 })
                     .catch(err => console.warn("Click increment failed:", err));
 
                 // ========== REDIRECT ==========
                 messageDiv.innerHTML = '<div class="success">✅ Redirecting now...</div>';
 
-                // Automatic redirect after a short delay (ensures message is seen)
-                setTimeout(() => {
-                    window.location.replace(destination);
-                }, 300);
-                
                 // Provide manual fallback
                 manualLinkSpan.textContent = destination;
                 manualRedirectBtn.onclick = () => window.location.replace(destination);
                 manualContainer.classList.remove('hidden');
                 manualRedirectBtn.style.display = 'inline-block';
 
+                // Automatic redirect after a short delay (ensures UI updates)
+                setTimeout(() => {
+                    window.location.replace(destination);
+                }, 300);
                 
             }).catch((error) => {
                 console.error("Redirect error:", error);
