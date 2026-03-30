@@ -113,6 +113,7 @@ function renderLinks(linksData) {
             const id = btn.getAttribute('data-id');
             if (confirm('Delete this link? Clicks will be lost.')) {
                 await remove(ref(db, `users/${currentUser.uid}/links/${id}`));
+              await remove(ref(db, `linkIndex/${id}`));
             }
         });
     });
@@ -144,12 +145,17 @@ async function addNewLink() {
         return;
     }
 
-    const newLinkRef = push(ref(db, `publicLinks/${newLinkRef.key}`));
+    const newLinkRef = push(ref(db, `users/${currentUser.uid}/links`));
     await set(newLinkRef, {
         name: name,
         destinationUrl: destination,
         clickCount: 0,
         createdAt: Date.now()
+        uid: currentUser.uid
+    });
+   // ✅ STEP 2: create global index (VERY IMPORTANT)
+    await set(ref(db, `linkIndex/${newLinkRef.key}`), {
+        uid: currentUser.uid
     });
     linkNameInput.value = '';
     linkUrlInput.value = '';
