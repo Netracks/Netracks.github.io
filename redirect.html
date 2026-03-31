@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Redirecting...</title>
     <style>
-        /* (same as before) */
+        /* (same as before – omitted for brevity) */
         body {
             font-family: system-ui, -apple-system, 'Segoe UI', monospace;
             background: #f4f8fb;
@@ -105,7 +105,6 @@
         import { getDatabase, ref, get, update, push } from "firebase/database";
 
         document.addEventListener("DOMContentLoaded", () => {
-            // 🔁 YOUR FIREBASE CONFIGURATION
             const firebaseConfig = {
                 apiKey: "AIzaSyCx-yIgRBdqqaZm5mnCs6XicbJHqf442mQ",
                 authDomain: "netrackers.firebaseapp.com",
@@ -125,77 +124,36 @@
             const manualLinkSpan = document.getElementById('manualLink');
             const manualContainer = document.getElementById('manualRedirect');
 
-            const urlParams = new URLSearchParams(window.location.search);
-            const linkId = urlParams.get('id');
-
+            const linkId = new URLSearchParams(window.location.search).get('id');
             if (!linkId) {
-                messageDiv.innerHTML = '<div class="error">❌ Missing link ID. Invalid tracking link.</div>';
+                messageDiv.innerHTML = '<div class="error">❌ Missing link ID</div>';
                 manualContainer.classList.remove('hidden');
                 manualRedirectBtn.style.display = 'none';
-                manualLinkSpan.textContent = '#';
                 return;
             }
 
-            // 1️⃣ Look up owner via global link index
+            // Step 1: Look up owner via global index
             messageDiv.innerHTML = '<div>🔍 Locating link...</div>';
             const indexRef = ref(db, `linkIndex/${linkId}`);
-            
-            get(indexRef).then(async (indexSnapshot) => {
-                if (!indexSnapshot.exists()) {
-                    messageDiv.innerHTML = '<div class="error">🔍 Link not found or has been deleted.</div>';
-                    manualContainer.classList.remove('hidden');
-                    manualRedirectBtn.style.display = 'none';
-                    return;
-                }
+            get(indexRef).then(async (indexSnap) => {
+                if (!indexSnap.exists()) throw new Error('Link not found');
+                const { uid } = indexSnap.val();
+                if (!uid) throw new Error('Invalid link data');
 
-                const { uid } = indexSnapshot.val();
-                if (!uid) {
-                    messageDiv.innerHTML = '<div class="error">🔍 Invalid link data.</div>';
-                    manualContainer.classList.remove('hidden');
-                    manualRedirectBtn.style.display = 'none';
-                    return;
-                }
-
-                // 2️⃣ Fetch the full link data from the user's subpath
+                // Step 2: Fetch full link data
                 messageDiv.innerHTML = '<div>📡 Fetching destination...</div>';
                 const linkRef = ref(db, `users/${uid}/links/${linkId}`);
-                const linkSnapshot = await get(linkRef);
-                
-                if (!linkSnapshot.exists()) {
-                    messageDiv.innerHTML = '<div class="error">🔍 Link data missing.</div>';
-                    manualContainer.classList.remove('hidden');
-                    manualRedirectBtn.style.display = 'none';
-                    return;
-                }
+                const linkSnap = await get(linkRef);
+                if (!linkSnap.exists()) throw new Error('Link data missing');
+                const link = linkSnap.val();
+                let destination = link.destinationUrl;
+                if (!destination) throw new Error('No destination URL');
 
-                const linkData = linkSnapshot.val();
-                let destination = linkData.destinationUrl;
+                // Fix protocol
+                if (!destination.startsWith('http')) destination = 'https://' + destination;
+                try { new URL(destination); } catch(e) { throw new Error('Invalid URL'); }
 
-                if (!destination) {
-                    messageDiv.innerHTML = '<div class="error">⚠️ Destination URL is empty.</div>';
-                    manualContainer.classList.remove('hidden');
-                    manualRedirectBtn.style.display = 'none';
-                    return;
-                }
-
-                // Fix protocol if missing
-                if (!destination.startsWith('http://') && !destination.startsWith('https://')) {
-                    destination = 'https://' + destination;
-                }
-
-                // Validate URL
-                try {
-                    new URL(destination);
-                } catch (e) {
-                    messageDiv.innerHTML = `<div class="error">❌ Invalid destination URL: ${destination}</div>`;
-                    manualContainer.classList.remove('hidden');
-                    manualLinkSpan.textContent = destination;
-                    manualRedirectBtn.style.display = 'inline-block';
-                    manualRedirectBtn.onclick = () => window.location.replace(destination);
-                    return;
-                }
-
-                // ========== ANALYTICS (non-blocking) ==========
+                // ========== ANALYTICS (non‑blocking) ==========
                 const userAgent = navigator.userAgent;
                 const platform = navigator.platform;
                 const referrer = document.referrer || "Direct";
@@ -209,7 +167,7 @@
                 let source = "Direct";
                 if (referrer.includes("whatsapp")) source = "WhatsApp";
                 else if (referrer.includes("google")) source = "Google";
-                else if (referrer.includes("facebook") || referrer.includes("fb.com")) source = "Facebook";
+                else if (referrer.includes("facebook")) source = "Facebook";
                 else if (referrer.includes("twitter")) source = "Twitter";
                 else if (referrer.includes("instagram")) source = "Instagram";
                 else if (referrer.includes("linkedin")) source = "LinkedIn";
@@ -218,12 +176,11 @@
 
                 const screenSize = { width: screen.width, height: screen.height };
 
-                // Geo data (non‑blocking)
+                // Geo data (async, non‑blocking)
                 const geoPromise = fetch("https://ipapi.co/json/")
                     .then(res => res.ok ? res.json() : {})
-                    .catch(err => { console.warn("GeoIP fetch failed:", err); return {}; });
+                    .catch(() => ({}));
 
-                // Save visit and increment click count in background
                 geoPromise.then(loc => {
                     const visitData = {
                         ip: loc.ip || "hidden",
@@ -235,44 +192,32 @@
                         longitude: loc.longitude || null,
                         userAgent: userAgent.slice(0, 120),
                         os: platform,
-                        referrer: referrer,
-                        source: source,
+                        referrer,
+                        source,
                         device: isMobile ? "Mobile" : "Desktop",
                         deviceType: isMobile ? (isAndroid ? "Android" : isIOS ? "iOS" : "Mobile") : "Desktop",
                         browserName: isChrome ? "Chrome" : isFirefox ? "Firefox" : isSafari ? "Safari" : "Other",
                         screen: screenSize,
                         timestamp: new Date().toISOString()
                     };
-
-                    // ✅ Path: users/{uid}/links/{linkId}/visits/{visitId}
+                    // ✅ CORRECT PATH: users/{uid}/links/{linkId}/visits
                     const visitsRef = ref(db, `users/${uid}/links/${linkId}/visits`);
-                    const newVisitRef = push(visitsRef);
-                    update(newVisitRef, visitData)
-                        .then(() => console.log("✅ Visit saved"))
-                        .catch(err => console.warn("Visit save failed:", err));
+                    push(visitsRef, visitData).catch(console.warn);
                 });
 
-                // ✅ Increment click count (path: users/{uid}/links/{linkId})
-                update(linkRef, { clickCount: (linkData.clickCount || 0) + 1 })
-                    .catch(err => console.warn("Click increment failed:", err));
+                // Increment click count (non‑blocking)
+                update(linkRef, { clickCount: (link.clickCount || 0) + 1 }).catch(console.warn);
 
                 // ========== REDIRECT ==========
-                messageDiv.innerHTML = '<div class="success">✅ Redirecting now...</div>';
-
-                // Provide manual fallback
+                messageDiv.innerHTML = '<div class="success">✅ Redirecting...</div>';
                 manualLinkSpan.textContent = destination;
                 manualRedirectBtn.onclick = () => window.location.replace(destination);
                 manualContainer.classList.remove('hidden');
                 manualRedirectBtn.style.display = 'inline-block';
-
-                // Automatic redirect after a short delay (ensures UI updates)
-                setTimeout(() => {
-                    window.location.replace(destination);
-                }, 300);
-                
-            }).catch((error) => {
-                console.error("Redirect error:", error);
-                messageDiv.innerHTML = `<div class="error">🔥 Failed to load link: ${error.message || 'Unknown error'}</div>`;
+                setTimeout(() => window.location.replace(destination), 200);
+            }).catch(err => {
+                console.error(err);
+                messageDiv.innerHTML = `<div class="error">🔥 ${err.message}</div>`;
                 manualContainer.classList.remove('hidden');
                 manualRedirectBtn.style.display = 'none';
             });
