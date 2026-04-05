@@ -197,7 +197,7 @@ const firebaseConfig = {
             }
             try {
                 await signInWithEmailAndPassword(auth, email, password);
-                window.location.href = "trackindex.html";
+                window.location.href = "index.html";
             } catch (error) {
                 showMessage(error.message);
             }
