@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkTracker Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs2-fix/qrcode.min.js"></script>
+</head>
+<body>
+    <div class="app-container" id="app">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <div class="logo">
+                <i class="fas fa-link"></i> LinkTracker
+            </div>
+            <div class="theme-toggle">
+                <i class="fas fa-moon"></i>
+            </div>
+            <div class="user-menu">
+                <img id="userAvatar" class="avatar" src="https://via.placeholder.com/40" alt="Avatar">
+                <span id="userName" class="user-name"></span>
+                <span id="planBadge" class="plan-badge free">Free</span>
+                <button id="logoutBtn" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="dashboard-main">
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+                    <div class="stat-info">
+                        <h3>Total Clicks</h3>
+                        <p id="totalClicks">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-link"></i></div>
+                    <div class="stat-info">
+                        <h3>Total Links</h3>
+                        <p id="totalLinks">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+                    <div class="stat-info">
+                        <h3>Today's Clicks</h3>
+                        <p id="todayClicks">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-globe"></i></div>
+                    <div class="stat-info">
+                        <h3>Top Country</h3>
+                        <p id="topCountry">—</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search & Sort Bar -->
+            <div class="search-sort-bar">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search links by name...">
+                </div>
+                <div class="sort-box">
+                    <label><i class="fas fa-sort"></i> Sort by:</label>
+                    <select id="sortSelect">
+                        <option value="name">Name</option>
+                        <option value="clicks">Clicks (high to low)</option>
+                        <option value="date">Date (newest first)</option>
+                    </select>
+                </div>
+                <button id="addLinkBtnMain" class="btn-primary"><i class="fas fa-plus"></i> Create Link</button>
+            </div>
+
+            <!-- Links List (Card View) -->
+            <div class="links-section">
+                <div id="linksContainer" class="links-grid"></div>
+                <div id="pagination" class="pagination"></div>
+            </div>
+        </main>
+
+        <!-- Modal for Add/Edit Link -->
+        <div id="linkModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h3 id="modalTitle">Create New Link</h3>
+                <input type="text" id="modalLinkName" placeholder="Link name">
+                <input type="url" id="modalLinkUrl" placeholder="https://example.com">
+                <div class="modal-buttons">
+                    <button id="modalSaveBtn" class="btn-primary">Save</button>
+                    <button id="modalCancelBtn" class="btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Modal (Detailed) -->
+        <div id="analyticsModal" class="modal analytics-modal">
+            <div class="modal-content large">
+                <span class="close-analytics">&times;</span>
+                <h3 id="analyticsLinkName"></h3>
+                <div class="analytics-tabs">
+                    <button class="tab-btn active" data-tab="overview">Overview</button>
+                    <button class="tab-btn" data-tab="devices">Devices</button>
+                    <button class="tab-btn" data-tab="locations">Locations</button>
+                    <button class="tab-btn" data-tab="visitors">Visitors</button>
+                </div>
+
+                <!-- Overview Tab -->
+                <div id="overviewTab" class="tab-content active">
+                    <div class="stats-mini">
+                        <div>Total Clicks: <strong id="analyticsClicks"></strong></div>
+                        <div>Created: <span id="analyticsCreated"></span></div>
+                    </div>
+                    <canvas id="clicksChart" width="400" height="200"></canvas>
+                </div>
+
+                <!-- Devices Tab -->
+                <div id="devicesTab" class="tab-content">
+                    <canvas id="deviceChart" width="400" height="200"></canvas>
+                    <div class="browser-stats" id="browserStats"></div>
+                </div>
+
+                <!-- Locations Tab -->
+                <div id="locationsTab" class="tab-content">
+                    <div id="locationStats"></div>
+                    <div id="countryFilter">
+                        <label>Filter by country:</label>
+                        <select id="countryFilterSelect"></select>
+                    </div>
+                    <div id="cityList"></div>
+                </div>
+
+                <!-- Visitors Tab (table) -->
+                <div id="visitorsTab" class="tab-content">
+                    <div class="filter-bar">
+                        <input type="text" id="visitorSearch" placeholder="Filter by IP/device/browser...">
+                        <select id="deviceFilter">
+                            <option value="">All Devices</option>
+                            <option value="Mobile">Mobile</option>
+                            <option value="Desktop">Desktop</option>
+                        </select>
+                        <input type="date" id="dateFilter">
+                        <button id="exportCsvBtn" class="btn-secondary"><i class="fas fa-download"></i> Export CSV</button>
+                    </div>
+                    <div class="visitors-table-container">
+                        <table id="visitorsTable">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>IP</th>
+                                    <th>Country</th>
+                                    <th>City</th>
+                                    <th>Device</th>
+                                    <th>Browser</th>
+                                    <th>Source</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Modal -->
+        <div id="profileModal" class="modal">
+            <div class="modal-content">
+                <span class="close-profile">&times;</span>
+                <h3>Profile Settings</h3>
+                <div class="profile-pic-section">
+                    <img id="profileAvatarPreview" class="avatar-large" src="https://via.placeholder.com/100">
+                    <label for="avatarUpload" class="btn-secondary">Change Photo</label>
+                    <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+                </div>
+                <input type="text" id="profileName" placeholder="Full Name">
+                <input type="email" id="profileEmail" placeholder="Email" disabled>
+                <div class="plan-info">
+                    <strong>Plan:</strong> <span id="profilePlan">Free</span>
+                    <button id="upgradePlanBtn" class="btn-secondary">Upgrade (coming soon)</button>
+                </div>
+                <div class="profile-actions">
+                    <button id="saveProfileBtn" class="btn-primary">Save Changes</button>
+                    <button id="changePasswordBtn" class="btn-secondary">Change Password</button>
+                    <button id="deleteAccountBtn" class="btn-danger">Delete Account</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- QR Code Modal -->
+        <div id="qrModal" class="modal">
+            <div class="modal-content small">
+                <span class="close-qr">&times;</span>
+                <h3>QR Code for <span id="qrLinkName"></span></h3>
+                <div id="qrcode"></div>
+                <button id="downloadQrBtn" class="btn-primary">Download QR</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app1.js"></script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting...</title>
+    <style>
+        /* (same as before – omitted for brevity) */
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', monospace;
+            background: #f4f8fb;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+        }
+        .redirect-card {
+            background: white;
+            padding: 2rem 2.5rem;
+            border-radius: 36px;
+            box-shadow: 0 20px 30px -12px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e0eef3;
+            border-top: 4px solid #0f4c5f;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 1rem auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error {
+            color: #b91c1c;
+            background: #ffe6e6;
+            padding: 0.8rem;
+            border-radius: 60px;
+            font-size: 0.9rem;
+            margin: 0.5rem 0;
+        }
+        .success {
+            color: #0f4c5f;
+            background: #e0f0f5;
+            padding: 0.8rem;
+            border-radius: 60px;
+            font-size: 0.9rem;
+        }
+        button {
+            background: #0f4c5f;
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 40px;
+            cursor: pointer;
+            margin-top: 1rem;
+            font-weight: 500;
+        }
+        a {
+            color: #0f4c5f;
+        }
+        .manual-link {
+            word-break: break-all;
+            background: #f0f4f8;
+            padding: 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-top: 1rem;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+                "firebase/database": "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="redirect-card">
+        <h3>🔗 LinkTracker</h3>
+        <div class="spinner"></div>
+        <p>Processing your click...</p>
+        <div id="message"></div>
+        <div id="manualRedirect" class="hidden">
+            <button id="manualRedirectBtn">➡️ Click here if not redirected</button>
+            <div class="manual-link">Or go directly: <span id="manualLink"></span></div>
+        </div>
+        <small style="display: block; margin-top: 1rem;">⚡ <a href="/">Go to dashboard</a></small>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "firebase/app";
+        import { getDatabase, ref, get, update, push } from "firebase/database";
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const firebaseConfig = {
+                apiKey: "AIzaSyCx-yIgRBdqqaZm5mnCs6XicbJHqf442mQ",
+                authDomain: "netrackers.firebaseapp.com",
+                databaseURL: "https://netrackers-default-rtdb.firebaseio.com",
+                projectId: "netrackers",
+                storageBucket: "netrackers.firebasestorage.app",
+                messagingSenderId: "362299470159",
+                appId: "1:362299470159:web:dce2775a7c6fdd6970153a",
+                measurementId: "G-FHJSFVG3RE"
+            };
+
+            const app = initializeApp(firebaseConfig);
+            const db = getDatabase(app);
+
+            const messageDiv = document.getElementById('message');
+            const manualRedirectBtn = document.getElementById('manualRedirectBtn');
+            const manualLinkSpan = document.getElementById('manualLink');
+            const manualContainer = document.getElementById('manualRedirect');
+
+            const linkId = new URLSearchParams(window.location.search).get('id');
+            if (!linkId) {
+                messageDiv.innerHTML = '<div class="error">❌ Missing link ID</div>';
+                manualContainer.classList.remove('hidden');
+                manualRedirectBtn.style.display = 'none';
+                return;
+            }
+
+            // Step 1: Look up owner via global index
+            messageDiv.innerHTML = '<div>🔍 Locating link...</div>';
+            const indexRef = ref(db, `linkIndex/${linkId}`);
+            get(indexRef).then(async (indexSnap) => {
+                if (!indexSnap.exists()) throw new Error('Link not found');
+                const { uid } = indexSnap.val();
+                if (!uid) throw new Error('Invalid link data');
+
+                // Step 2: Fetch full link data
+                messageDiv.innerHTML = '<div>📡 Fetching destination...</div>';
+                const linkRef = ref(db, `users/${uid}/links/${linkId}`);
+                const linkSnap = await get(linkRef);
+                if (!linkSnap.exists()) throw new Error('Link data missing');
+                const link = linkSnap.val();
+                let destination = link.destinationUrl;
+                if (!destination) throw new Error('No destination URL');
+
+                // Fix protocol
+                if (!destination.startsWith('http')) destination = 'https://' + destination;
+                try { new URL(destination); } catch(e) { throw new Error('Invalid URL'); }
+
+                // ========== ANALYTICS (non‑blocking) ==========
+                const userAgent = navigator.userAgent;
+                const platform = navigator.platform;
+                const referrer = document.referrer || "Direct";
+                const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
+                const isAndroid = /Android/i.test(userAgent);
+                const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
+                const isChrome = /Chrome/i.test(userAgent) && !/Edg/i.test(userAgent);
+                const isFirefox = /Firefox/i.test(userAgent);
+                const isSafari = /Safari/i.test(userAgent) && !/Chrome/i.test(userAgent);
+
+                let source = "Direct";
+                if (referrer.includes("whatsapp")) source = "WhatsApp";
+                else if (referrer.includes("google")) source = "Google";
+                else if (referrer.includes("facebook")) source = "Facebook";
+                else if (referrer.includes("twitter")) source = "Twitter";
+                else if (referrer.includes("instagram")) source = "Instagram";
+                else if (referrer.includes("linkedin")) source = "LinkedIn";
+                else if (referrer.includes("telegram")) source = "Telegram";
+                else if (referrer !== "Direct") source = "Other";
+
+                const screenSize = { width: screen.width, height: screen.height };
+
+                // Geo data (async, non‑blocking)
+                const geoPromise = fetch("https://ipapi.co/json/")
+                    .then(res => res.ok ? res.json() : {})
+                    .catch(() => ({}));
+
+                geoPromise.then(loc => {
+                    const visitData = {
+                        ip: loc.ip || "hidden",
+                        country: loc.country_name || "unknown",
+                        city: loc.city || "unknown",
+                        region: loc.region || "unknown",
+                        isp: loc.org || "unknown",
+                        latitude: loc.latitude || null,
+                        longitude: loc.longitude || null,
+                        userAgent: userAgent.slice(0, 120),
+                        os: platform,
+                        referrer,
+                        source,
+                        device: isMobile ? "Mobile" : "Desktop",
+                        deviceType: isMobile ? (isAndroid ? "Android" : isIOS ? "iOS" : "Mobile") : "Desktop",
+                        browserName: isChrome ? "Chrome" : isFirefox ? "Firefox" : isSafari ? "Safari" : "Other",
+                        screen: screenSize,
+                        timestamp: new Date().toISOString()
+                    };
+                    // ✅ CORRECT PATH: users/{uid}/links/{linkId}/visits
+                    const visitsRef = ref(db, `users/${uid}/links/${linkId}/visits`);
+                    push(visitsRef, visitData).catch(console.warn);
+                });
+
+                // Increment click count (non‑blocking)
+                update(linkRef, { clickCount: (link.clickCount || 0) + 1 }).catch(console.warn);
+
+                // ========== REDIRECT ==========
+                messageDiv.innerHTML = '<div class="success">✅ Redirecting...</div>';
+                manualLinkSpan.textContent = destination;
+                manualRedirectBtn.onclick = () => window.location.replace(destination);
+                manualContainer.classList.remove('hidden');
+                manualRedirectBtn.style.display = 'inline-block';
+                setTimeout(() => window.location.replace(destination), 200);
+            }).catch(err => {
+                console.error(err);
+                messageDiv.innerHTML = `<div class="error">🔥 ${err.message}</div>`;
+                manualContainer.classList.remove('hidden');
+                manualRedirectBtn.style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>

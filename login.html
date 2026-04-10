@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | LinkTracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="auth-container">
+        <h2><i class="fas fa-sign-in-alt"></i> Login to LinkTracker</h2>
+        <div id="messageDiv" class="message" style="display: none;"></div>
+
+        <div class="login-methods">
+            <button id="emailLoginTab" class="method-tab active">Email</button>
+            <button id="phoneLoginTab" class="method-tab">Phone</button>
+        </div>
+
+        <!-- Email Login Form -->
+        <div id="emailLoginForm">
+            <div class="input-group">
+                <i class="fas fa-envelope"></i>
+                <input type="email" id="loginEmail" placeholder="Email address">
+            </div>
+            <div class="input-group">
+                <i class="fas fa-lock"></i>
+                <input type="password" id="loginPassword" placeholder="Password">
+            </div>
+            <button id="loginBtn" class="btn-primary"><i class="fas fa-sign-in-alt"></i> Login with Email</button>
+            <div class="link"><a href="#" id="forgotPasswordLink">Forgot password?</a></div>
+        </div>
+
+        <!-- Phone Login Form -->
+        <div id="phoneLoginForm" style="display: none;">
+            <div class="input-group">
+                <i class="fas fa-phone"></i>
+                <input type="tel" id="phoneLogin" placeholder="Phone with country code (e.g., +919876543210)">
+            </div>
+            <button id="sendOtpLoginBtn" class="btn-secondary">Send OTP</button>
+            <div id="otpSectionLogin" style="display: none;">
+                <div class="input-group">
+                    <i class="fas fa-key"></i>
+                    <input type="text" id="otpCodeLogin" placeholder="Enter OTP">
+                </div>
+                <button id="verifyOtpLoginBtn" class="btn-primary">Verify & Login</button>
+            </div>
+        </div>
+
+        <div class="divider">or</div>
+
+        <button id="googleLoginBtn" class="provider-btn"><i class="fab fa-google"></i> Login with Google</button>
+        <button id="facebookLoginBtn" class="provider-btn"><i class="fab fa-facebook-f"></i> Login with Facebook</button>
+
+        <div class="link">
+            Don't have an account? <a href="signup.html">Sign up</a>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"
+            }
+        }
+    </script>
+    <script type="module">
+        import { initializeApp } from "firebase/app";
+        import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, FacebookAuthProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+// Firebase Config
+const firebaseConfig = {
+    apiKey: "AIzaSyCx-yIgRBdqqaZm5mnCs6XicbJHqf442mQ",
+    authDomain: "netrackers.firebaseapp.com",
+    databaseURL: "https://netrackers-default-rtdb.firebaseio.com",
+    projectId: "netrackers",
+    storageBucket: "netrackers.firebasestorage.app",
+    messagingSenderId: "362299470159",
+    appId: "1:362299470159:web:dce2775a7c6fdd6970153a",
+    measurementId: "G-FHJSFVG3RE"
+};
+        
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        const messageDiv = document.getElementById('messageDiv');
+        let confirmationResult = null;
+
+        function showMessage(msg, isError = true) {
+            messageDiv.textContent = msg;
+            messageDiv.className = isError ? 'message error' : 'message success';
+            messageDiv.style.display = 'block';
+            setTimeout(() => messageDiv.style.display = 'none', 4000);
+        }
+
+        // Tabs
+        document.getElementById('emailLoginTab').addEventListener('click', () => {
+            document.getElementById('emailLoginForm').style.display = 'block';
+            document.getElementById('phoneLoginForm').style.display = 'none';
+            document.getElementById('emailLoginTab').classList.add('active');
+            document.getElementById('phoneLoginTab').classList.remove('active');
+        });
+        document.getElementById('phoneLoginTab').addEventListener('click', () => {
+            document.getElementById('emailLoginForm').style.display = 'none';
+            document.getElementById('phoneLoginForm').style.display = 'block';
+            document.getElementById('phoneLoginTab').classList.add('active');
+            document.getElementById('emailLoginTab').classList.remove('active');
+        });
+
+        // Email Login
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            if (!email || !password) {
+                showMessage('Please enter email and password');
+                return;
+            }
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                window.location.href = "index.html";
+            } catch (error) {
+                showMessage(error.message);
+            }
+        });
+
+        // Forgot Password
+        document.getElementById('forgotPasswordLink').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value.trim();
+            if (!email) {
+                showMessage('Enter your email address first');
+                return;
+            }
+            try {
+                await sendPasswordResetEmail(auth, email);
+                showMessage('Password reset email sent!', false);
+            } catch (error) {
+                showMessage(error.message);
+            }
+        });
+
+        // Google Login
+        const googleProvider = new GoogleAuthProvider();
+        document.getElementById('googleLoginBtn').addEventListener('click', async () => {
+            try {
+                await signInWithPopup(auth, googleProvider);
+                window.location.href = "index.html";
+            } catch (error) {
+                showMessage(error.message);
+            }
+        });
+
+        // Facebook Login
+        const facebookProvider = new FacebookAuthProvider();
+        document.getElementById('facebookLoginBtn').addEventListener('click', async () => {
+            try {
+                await signInWithPopup(auth, facebookProvider);
+                window.location.href = "index.html";
+            } catch (error) {
+                showMessage(error.message);
+            }
+        });
+
+        // Phone OTP Login
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'sendOtpLoginBtn', { size: 'invisible' });
+        document.getElementById('sendOtpLoginBtn').addEventListener('click', async () => {
+            const phoneNumber = document.getElementById('phoneLogin').value.trim();
+            if (!phoneNumber || !phoneNumber.startsWith('+')) {
+                showMessage('Enter phone number with country code (e.g., +91...)');
+                return;
+            }
+            try {
+                confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
+                document.getElementById('otpSectionLogin').style.display = 'block';
+                showMessage('OTP sent!', false);
+            } catch (error) {
+                showMessage(error.message);
+            }
+        });
+
+        document.getElementById('verifyOtpLoginBtn').addEventListener('click', async () => {
+            const otp = document.getElementById('otpCodeLogin').value.trim();
+            if (!otp || !confirmationResult) {
+                showMessage('Enter OTP');
+                return;
+            }
+            try {
+                await confirmationResult.confirm(otp);
+                window.location.href = "index.html";
+            } catch (error) {
+                showMessage(error.message);
+            }
+        });
+    </script>
+</body>
+</html>

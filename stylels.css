@@ -1,0 +1,119 @@
+/* Auth Pages */
+.auth-container {
+    max-width: 450px;
+    margin: 3rem auto;
+    background: var(--bg-card);
+    padding: 2rem;
+    border-radius: 28px;
+    box-shadow: var(--shadow);
+}
+.auth-container h2 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: var(--primary);
+}
+.input-group {
+    position: relative;
+    margin-bottom: 1rem;
+}
+.input-group i {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+}
+.input-group input {
+    width: 100%;
+    padding: 0.8rem 1rem 0.8rem 2.5rem;
+    border: 1px solid var(--border);
+    border-radius: 60px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+.input-group input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+.btn-primary, .btn-secondary {
+    width: 100%;
+    margin-top: 0.5rem;
+}
+.btn-secondary {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+}
+.provider-btn {
+    width: 100%;
+    background: white;
+    border: 1px solid var(--border);
+    padding: 0.8rem;
+    border-radius: 60px;
+    margin-top: 0.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+}
+.provider-btn:hover {
+    background: var(--bg-primary);
+}
+.divider {
+    text-align: center;
+    margin: 1rem 0;
+    color: var(--text-secondary);
+    position: relative;
+}
+.divider::before, .divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background: var(--border);
+}
+.divider::before { left: 0; }
+.divider::after { right: 0; }
+.link {
+    text-align: center;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+.login-methods {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+.method-tab {
+    flex: 1;
+    padding: 0.5rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid var(--border);
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+.method-tab.active {
+    border-bottom-color: var(--primary);
+    color: var(--primary);
+}
+.phone-auth-section {
+    margin-top: 1rem;
+}
+.message {
+    padding: 0.8rem;
+    border-radius: 60px;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.message.error {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+.message.success {
+    background: #e0f0f5;
+    color: #0f4c5f;
+}

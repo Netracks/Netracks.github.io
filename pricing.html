@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upgrade Plan | LinkTracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <div class="premium-container">
+        <div class="premium-header">
+            <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+            <h1>🚀 Upgrade Your Plan</h1>
+            <p>Choose the plan that fits your needs</p>
+        </div>
+
+        <!-- Current Plan Info -->
+        <div id="currentPlanInfo" class="current-plan-card" style="display: none;">
+            <i class="fas fa-crown"></i>
+            <span>Your current plan: <strong id="currentPlanName">Free</strong></span>
+            <span id="expiryDate" style="display: none;">Expires: <span id="expiryValue"></span></span>
+        </div>
+
+        <div class="pricing-grid">
+            <!-- Basic Plan -->
+            <div class="pricing-card" data-plan="basic">
+                <h2>Basic</h2>
+                <div class="price">₹100 <span>/ month</span></div>
+                <ul class="features">
+                    <li><i class="fas fa-check"></i> Up to 20 links</li>
+                    <li><i class="fas fa-check"></i> Basic click analytics</li>
+                    <li><i class="fas fa-times"></i> Location tracking</li>
+                    <li><i class="fas fa-times"></i> Device & browser stats</li>
+                    <li><i class="fas fa-times"></i> Export data</li>
+                    <li><i class="fas fa-check"></i> QR codes</li>
+                </ul>
+                <div class="payment-buttons">
+                    <button class="pay-razorpay" data-amount="10000" data-plan="basic">Pay with Razorpay</button>
+                    <button class="pay-stripe" data-amount="100" data-plan="basic">Pay with Stripe</button>
+                </div>
+            </div>
+
+            <!-- Pro Plan -->
+            <div class="pricing-card pro" data-plan="pro">
+                <div class="popular-tag">🔥 Most Popular</div>
+                <h2>Pro</h2>
+                <div class="price">₹150 <span>/ month</span></div>
+                <ul class="features">
+                    <li><i class="fas fa-check"></i> Unlimited links</li>
+                    <li><i class="fas fa-check"></i> Full analytics</li>
+                    <li><i class="fas fa-check"></i> Location & device tracking</li>
+                    <li><i class="fas fa-check"></i> Browser & referrer stats</li>
+                    <li><i class="fas fa-check"></i> CSV export</li>
+                    <li><i class="fas fa-check"></i> QR codes</li>
+                </ul>
+                <div class="payment-buttons">
+                    <button class="pay-razorpay" data-amount="15000" data-plan="pro">Pay with Razorpay</button>
+                    <button class="pay-stripe" data-amount="150" data-plan="pro">Pay with Stripe</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+      
+// Firebase Config
+const firebaseConfig = {
+    apiKey: "AIzaSyCx-yIgRBdqqaZm5mnCs6XicbJHqf442mQ",
+    authDomain: "netrackers.firebaseapp.com",
+    databaseURL: "https://netrackers-default-rtdb.firebaseio.com",
+    projectId: "netrackers",
+    storageBucket: "netrackers.firebasestorage.app",
+    messagingSenderId: "362299470159",
+    appId: "1:362299470159:web:dce2775a7c6fdd6970153a",
+    measurementId: "G-FHJSFVG3RE"
+};
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+
+        let currentUser = null;
+        let currentSubscription = null;
+
+        // Helper to disable/enable buttons
+        function setButtonsLoading(isLoading, planToUpgrade = null) {
+            const allButtons = document.querySelectorAll('.pay-razorpay, .pay-stripe');
+            allButtons.forEach(btn => {
+                if (isLoading && planToUpgrade && btn.getAttribute('data-plan') !== planToUpgrade) return;
+                btn.disabled = isLoading;
+                btn.innerHTML = isLoading ? '<i class="fas fa-spinner fa-spin"></i> Processing...' : btn.innerHTML;
+            });
+        }
+
+        // Fetch current subscription and display
+        async function loadCurrentSubscription(uid) {
+            const subRef = ref(db, `users/${uid}/subscription`);
+            const snap = await get(subRef);
+            if (snap.exists()) {
+                currentSubscription = snap.val();
+                if (currentSubscription.active && currentSubscription.expiresAt > Date.now()) {
+                    const planName = currentSubscription.plan === 'basic' ? 'Basic' : 'Pro';
+                    document.getElementById('currentPlanName').innerText = planName;
+                    document.getElementById('expiryValue').innerText = new Date(currentSubscription.expiresAt).toLocaleDateString();
+                    document.getElementById('expiryDate').style.display = 'inline';
+                    document.getElementById('currentPlanInfo').style.display = 'flex';
+
+                    // Disable buttons if already on same or higher plan
+                    const currentPlan = currentSubscription.plan;
+                    document.querySelectorAll('.pricing-card').forEach(card => {
+                        const plan = card.getAttribute('data-plan');
+                        if (plan === currentPlan) {
+                            card.querySelectorAll('button').forEach(btn => {
+                                btn.disabled = true;
+                                btn.innerText = '✓ Current Plan';
+                            });
+                        } else if (currentPlan === 'pro' && plan === 'basic') {
+                            card.querySelectorAll('button').forEach(btn => {
+                                btn.disabled = true;
+                                btn.innerText = 'Pro is higher';
+                            });
+                        }
+                    });
+                }
+            }
+        }
+
+        // Razorpay Integration (secure – backend verifies payment)
+        async function initRazorpay(amount, plan) {
+            if (!currentUser) {
+                alert("Please login first");
+                return;
+            }
+            if (currentSubscription?.plan === plan && currentSubscription?.active && currentSubscription?.expiresAt > Date.now()) {
+                alert("You already have this active plan!");
+                return;
+            }
+
+            setButtonsLoading(true, plan);
+            try {
+                const response = await fetch('/.netlify/functions/create-razorpay-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: amount,
+                        currency: 'INR',
+                        userId: currentUser.uid,
+                        plan: plan
+                    })
+                });
+                const data = await response.json();
+                if (!data.orderId) throw new Error("Failed to create order");
+
+                const options = {
+                    key: "YOUR_RAZORPAY_KEY_ID", // Replace with live key
+                    amount: amount,
+                    currency: "INR",
+                    name: "LinkTracker",
+                    description: `${plan.toUpperCase()} Plan Subscription`,
+                    order_id: data.orderId,
+                    handler: async function(response) {
+                        // Backend verification happens here
+                        const verifyRes = await fetch('/.netlify/functions/verify-razorpay', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                orderId: response.razorpay_order_id,
+                                paymentId: response.razorpay_payment_id,
+                                signature: response.razorpay_signature,
+                                userId: currentUser.uid,
+                                plan: plan
+                            })
+                        });
+                        const verifyData = await verifyRes.json();
+                        if (verifyData.success) {
+                            alert("✅ Payment successful! Upgrading your plan...");
+                            window.location.href = "index.html";
+                        } else {
+                            alert("❌ Payment verification failed. Contact support.");
+                        }
+                    },
+                    prefill: {
+                        name: currentUser.displayName || "",
+                        email: currentUser.email || "",
+                    },
+                    theme: { color: "#0f4c5f" },
+                    modal: { ondismiss: () => setButtonsLoading(false, plan) }
+                };
+                const rzp = new Razorpay(options);
+                rzp.open();
+            } catch (error) {
+                console.error(error);
+                alert("Payment initialization failed: " + error.message);
+                setButtonsLoading(false, plan);
+            }
+        }
+
+        // Stripe Integration (secure – backend creates session, webhook updates)
+        async function initStripe(amount, plan) {
+            if (!currentUser) {
+                alert("Please login first");
+                return;
+            }
+            if (currentSubscription?.plan === plan && currentSubscription?.active && currentSubscription?.expiresAt > Date.now()) {
+                alert("You already have this active plan!");
+                return;
+            }
+
+            setButtonsLoading(true, plan);
+            try {
+                const response = await fetch('/.netlify/functions/create-stripe-checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: amount,
+                        plan: plan,
+                        userId: currentUser.uid,
+                        email: currentUser.email
+                    })
+                });
+                const data = await response.json();
+                if (!data.sessionId) throw new Error("Failed to create checkout session");
+
+                const stripe = Stripe("YOUR_STRIPE_PUBLISHABLE_KEY"); // Replace with live key
+                const result = await stripe.redirectToCheckout({ sessionId: data.sessionId });
+                if (result.error) throw new Error(result.error.message);
+            } catch (error) {
+                console.error(error);
+                alert("Stripe initialization failed: " + error.message);
+                setButtonsLoading(false, plan);
+            }
+        }
+
+        // Auth listener
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = "login.html";
+                return;
+            }
+            currentUser = user;
+            await loadCurrentSubscription(user.uid);
+
+            // Attach event listeners (only after subscription loaded)
+            document.querySelectorAll('.pay-razorpay').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const amount = parseInt(btn.getAttribute('data-amount'));
+                    const plan = btn.getAttribute('data-plan');
+                    initRazorpay(amount, plan);
+                });
+            });
+            document.querySelectorAll('.pay-stripe').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const amount = parseInt(btn.getAttribute('data-amount'));
+                    const plan = btn.getAttribute('data-plan');
+                    initStripe(amount, plan);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
