@@ -1,0 +1,9 @@
+{
+  "name": "netracks",
+  "version": "1.0.0",
+  "dependencies": {
+    "razorpay": "^2.9.2",
+    "stripe": "^14.0.0",
+    "firebase-admin": "^12.0.0"
+  }
+}
